@@ -183,129 +183,129 @@ async function registerLoginRoute(fastify) {
       }
     },
     async (request, reply) => {
-    const { username, password } = request.body || {};
+      const { username, password } = request.body || {};
 
-    if (!username || !password) {
-      return reply.status(400).send({ error: "Informe usuario e senha." });
-    }
-
-    let browser;
-
-    try {
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      });
-
-      const page = await browser.newPage();
-      await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
-      );
-      page.setDefaultTimeout(30000);
-
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
-        // 1) Abre index
-        await page.goto(`${BASE_URL}/aluno/index.action`, {
-          waitUntil: "domcontentloaded",
-          timeout: 30000,
-        });
-
-        if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
-
-        // 2) Login
-        await page.evaluate(
-          async ({ loginUrl, user, pass }) => {
-            const body = new URLSearchParams({
-              j_username: user,
-              j_password: pass,
-            }).toString();
-
-            await fetch(loginUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded" },
-              body,
-              credentials: "include",
-              redirect: "follow",
-            });
-          },
-          {
-            loginUrl: `${BASE_URL}/aluno/j_security_check`,
-            user: String(username),
-            pass: String(password),
-          }
-        );
-
-        // 3) Vai para index logado
-        await page.goto(`${BASE_URL}/aluno/index.action`, {
-          waitUntil: "domcontentloaded",
-          timeout: 30000,
-        });
-
-        if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
-
-        // 4) Erros de UI
-        const pnotifyText = await extractPnotifyText(page);
-        if (pnotifyText) throw new Error(pnotifyText);
-
-        // 5) Pega matr??cula na index
-        await page.waitForSelector("#matricula", { timeout: 15000 });
-
-        const matricula = await page.$eval("#matricula", (el) => (el?.value || "").trim());
-        if (!matricula) throw new Error("Matr??cula n??o encontrada.");
-
-        // 6) Cookies SSO
-        const cookies = await page.cookies(`${BASE_URL}/aluno/`);
-        const SSO = cookies.find((cookie) => cookie.name === "JSESSIONIDSSO");
-
-        if (!SSO?.value) {
-          if (attempt === MAX_RETRIES) throw new Error("Tente novamente mais tarde.");
-          continue;
-        }
-
-        // 7) Agora abre a p??gina de perfil (dados cadastrais)
-        await page.goto(`${BASE_URL}/aluno/aluno/perfil/perfil.action`, {
-          waitUntil: "domcontentloaded",
-          timeout: 30000,
-        });
-
-        if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
-
-        const pnotifyPerfil = await extractPnotifyText(page);
-        if (pnotifyPerfil) throw new Error(pnotifyPerfil);
-
-        // 8) Extrai dados do perfil
-        const profile = await extractProfileData(page);
-
-        // garantia: se por algum motivo vier vazio, mant??m a matr??cula que voc?? j?? tem
-        profile.matricula = profile.matricula || matricula;
-
-        // 9) Set-Cookie pro seu dom??nio
-        reply.setCookie("CEFETID_SSO", SSO.value, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "strict",
-          path: "/",
-        });
-
-        // 10) Retorna JSON
-        return reply.status(200).send({
-          status: { ok: true },
-          data: {
-            username: String(username),
-            ...profile,
-          },
-        });
+      if (!username || !password) {
+        return reply.status(400).send({ error: "Informe usuario e senha." });
       }
 
-      throw new Error("Tente novamente mais tarde.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Tente novamente mais tarde.";
-      const status = message === CPA_BLOCK_MESSAGE ? 503 : 400;
-      return reply.status(status).send({ error: message });
-    } finally {
-      if (browser) await browser.close();
-    }
-  });
+      let browser;
+
+      try {
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        });
+
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+        );
+        page.setDefaultTimeout(30000);
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+          // 1) Abre index
+          await page.goto(`${BASE_URL}/aluno/index.action`, {
+            waitUntil: "domcontentloaded",
+            timeout: 30000,
+          });
+
+          if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
+
+          // 2) Login
+          await page.evaluate(
+            async ({ loginUrl, user, pass }) => {
+              const body = new URLSearchParams({
+                j_username: user,
+                j_password: pass,
+              }).toString();
+
+              await fetch(loginUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body,
+                credentials: "include",
+                redirect: "follow",
+              });
+            },
+            {
+              loginUrl: `${BASE_URL}/aluno/j_security_check`,
+              user: String(username),
+              pass: String(password),
+            }
+          );
+
+          // 3) Vai para index logado
+          await page.goto(`${BASE_URL}/aluno/index.action`, {
+            waitUntil: "domcontentloaded",
+            timeout: 30000,
+          });
+
+          if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
+
+          // 4) Erros de UI
+          const pnotifyText = await extractPnotifyText(page);
+          if (pnotifyText) throw new Error(pnotifyText);
+
+          // 5) Pega matr??cula na index
+          await page.waitForSelector("#matricula", { timeout: 15000 });
+
+          const matricula = await page.$eval("#matricula", (el) => (el?.value || "").trim());
+          if (!matricula) throw new Error("Matr??cula n??o encontrada.");
+
+          // 6) Cookies SSO
+          const cookies = await page.cookies(`${BASE_URL}/aluno/`);
+          const SSO = cookies.find((cookie) => cookie.name === "JSESSIONIDSSO");
+
+          if (!SSO?.value) {
+            if (attempt === MAX_RETRIES) throw new Error("Tente novamente mais tarde.");
+            continue;
+          }
+
+          // 7) Agora abre a p??gina de perfil (dados cadastrais)
+          await page.goto(`${BASE_URL}/aluno/aluno/perfil/perfil.action`, {
+            waitUntil: "domcontentloaded",
+            timeout: 30000,
+          });
+
+          if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
+
+          const pnotifyPerfil = await extractPnotifyText(page);
+          if (pnotifyPerfil) throw new Error(pnotifyPerfil);
+
+          // 8) Extrai dados do perfil
+          const profile = await extractProfileData(page);
+
+          // garantia: se por algum motivo vier vazio, mant??m a matr??cula que voc?? j?? tem
+          profile.matricula = profile.matricula || matricula;
+
+          // 9) Set-Cookie pro seu dom??nio
+          // reply.setCookie("CEFETID_SSO", SSO.value, {
+          //   httpOnly: true,
+          //   secure: true,
+          //   sameSite: "strict",
+          //   path: "/",
+          // });
+
+          // 10) Retorna JSON
+          return reply.status(200).send({
+            token: SSO,
+            data: {
+              username: String(username),
+              ...profile,
+            },
+          });
+        }
+
+        throw new Error("Tente novamente mais tarde.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Tente novamente mais tarde.";
+        const status = message === CPA_BLOCK_MESSAGE ? 503 : 400;
+        return reply.status(status).send({ error: message });
+      } finally {
+        if (browser) await browser.close();
+      }
+    });
 }
 
 module.exports = registerLoginRoute;
