@@ -1,10 +1,11 @@
 FROM node:20-bookworm-slim
 
 WORKDIR /app
-
 ENV NODE_ENV=production
 
+# 1) Instala Chromium + dependências comuns
 RUN apt-get update && apt-get install -y --no-install-recommends \
+  chromium \
   ca-certificates \
   fonts-liberation \
   libasound2 \
@@ -39,12 +40,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libxss1 \
   libxtst6 \
   xdg-utils \
-  wget \
   && rm -rf /var/lib/apt/lists/*
 
+# 2) Diz pro Puppeteer onde está o Chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# (opcional) evita o Puppeteer tentar baixar Chrome na instalação
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
+# 3) Dependências Node
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
+# 4) Código
 COPY src ./src
 
 EXPOSE 3000
