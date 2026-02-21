@@ -61,29 +61,29 @@ async function extractProfileData(page) {
     const nomeMenu = clean(document.querySelector("#menu button .ui-button-text")?.textContent || "");
 
     const nome = getByLabel(/^Nome$/i) || nomeMenu;
-    const nomeMae = getByLabel(/Nome da M[ãa]e/i);
+    const nomeMae = getByLabel(/Nome da M[??a]e/i);
     const nomePai = getByLabel(/Nome da Pai|Nome do Pai/i);
     const nascimento = getByLabel(/Nascimento/i);
     const sexo = getByLabel(/Sexo/i);
     const etnia = getByLabel(/Etnia/i);
-    const deficiencia = getByLabel(/Defici[êe]ncia/i);
-    const tipoSanguineo = getByLabel(/Tipo Sangu[ií]neo/i);
+    const deficiencia = getByLabel(/Defici[??e]ncia/i);
+    const tipoSanguineo = getByLabel(/Tipo Sangu[i??]neo/i);
     const fatorRh = getByLabel(/Fator RH/i);
     const estadoCivil = getByLabel(/Estado Civil/i);
-    const paginaPessoal = getByLabel(/P[áa]gina Pessoal/i);
+    const paginaPessoal = getByLabel(/P[??a]gina Pessoal/i);
 
     const nacionalidade = getByLabel(/Nacionalidade/i);
     const estado = getByLabel(/^Estado$/i);
     const naturalidade = getByLabel(/Naturalidade/i);
 
-    // Endereço (bloco Endereço)
-    const tipoEndereco = getByLabel(/Tipo de endere[çc]o/i);
+    // Endere??o (bloco Endere??o)
+    const tipoEndereco = getByLabel(/Tipo de endere[??c]o/i);
     const tipoLogradouro = getByLabel(/Tipo de logradouro/i);
     const logradouro = getByLabel(/Logradouro/i);
-    const numero = getByLabel(/^N[úu]mero$/i);
+    const numero = getByLabel(/^N[??u]mero$/i);
     const complemento = getByLabel(/Complemento/i);
     const bairro = getByLabel(/Bairro/i);
-    const pais = getByLabel(/Pa[ií]s/i);
+    const pais = getByLabel(/Pa[i??]s/i);
     const uf = getByLabel(/\bRJ\b|^RJ$|^UF$/i) || getByLabel(/Estado/i); // fallback leve
     const cidade = getByLabel(/Cidade/i);
     const distrito = getByLabel(/Distrito/i);
@@ -133,7 +133,56 @@ async function extractProfileData(page) {
 }
 
 async function registerLoginRoute(fastify) {
-  fastify.post("/login", async (request, reply) => {
+  fastify.post(
+    "/login",
+    {
+      schema: {
+        tags: ["Auth"],
+        summary: "Realiza login no portal de alunos do CEFET-RJ",
+        body: {
+          type: "object",
+          required: ["username", "password"],
+          properties: {
+            username: { type: "string" },
+            password: { type: "string" }
+          }
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: {
+                type: "object",
+                properties: {
+                  ok: { type: "boolean" }
+                }
+              },
+              data: {
+                type: "object",
+                properties: {
+                  username: { type: "string" },
+                  matricula: { type: "string", nullable: true }
+                },
+                additionalProperties: true
+              }
+            }
+          },
+          400: {
+            type: "object",
+            properties: {
+              error: { type: "string" }
+            }
+          },
+          503: {
+            type: "object",
+            properties: {
+              error: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
     const { username, password } = request.body || {};
 
     if (!username || !password) {
@@ -198,11 +247,11 @@ async function registerLoginRoute(fastify) {
         const pnotifyText = await extractPnotifyText(page);
         if (pnotifyText) throw new Error(pnotifyText);
 
-        // 5) Pega matrícula na index
+        // 5) Pega matr??cula na index
         await page.waitForSelector("#matricula", { timeout: 15000 });
 
         const matricula = await page.$eval("#matricula", (el) => (el?.value || "").trim());
-        if (!matricula) throw new Error("Matrícula não encontrada.");
+        if (!matricula) throw new Error("Matr??cula n??o encontrada.");
 
         // 6) Cookies SSO
         const cookies = await page.cookies(`${BASE_URL}/aluno/`);
@@ -213,7 +262,7 @@ async function registerLoginRoute(fastify) {
           continue;
         }
 
-        // 7) Agora abre a página de perfil (dados cadastrais)
+        // 7) Agora abre a p??gina de perfil (dados cadastrais)
         await page.goto(`${BASE_URL}/aluno/aluno/perfil/perfil.action`, {
           waitUntil: "domcontentloaded",
           timeout: 30000,
@@ -227,10 +276,10 @@ async function registerLoginRoute(fastify) {
         // 8) Extrai dados do perfil
         const profile = await extractProfileData(page);
 
-        // garantia: se por algum motivo vier vazio, mantém a matrícula que você já tem
+        // garantia: se por algum motivo vier vazio, mant??m a matr??cula que voc?? j?? tem
         profile.matricula = profile.matricula || matricula;
 
-        // 9) Set-Cookie pro seu domínio
+        // 9) Set-Cookie pro seu dom??nio
         reply.setCookie("CEFETID_SSO", SSO.value, {
           httpOnly: true,
           secure: true,
