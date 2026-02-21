@@ -189,8 +189,16 @@ async function registerLoginRoute(fastify) {
 
       try {
         browser = await puppeteer.launch({
-          headless: true,
-          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          headless: "new", // ou true, mas "new" é melhor nas versões recentes
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage", // evita crash por /dev/shm pequeno no free tier
+            "--disable-gpu",
+            "--no-zygote",
+            "--single-process"
+          ],
         });
 
         const page = await browser.newPage();
