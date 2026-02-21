@@ -1,10 +1,11 @@
-const Fastify = require("fastify");
-const fastifyCookie = require("@fastify/cookie");
-const fastifySwagger = require("@fastify/swagger");
-const fastifySwaggerUi = require("@fastify/swagger-ui");
-const registerLoginRoute = require("./routes/login.route");
+﻿import Fastify from "fastify";
+import fastifyCookie from "@fastify/cookie";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUi from "@fastify/swagger-ui";
+import { fileURLToPath } from "node:url";
+import registerLoginRoute from "./routes/login.route.js";
 
-async function buildServer() {
+export async function buildServer() {
   const app = Fastify({ logger: true });
 
   await app.register(fastifyCookie);
@@ -57,7 +58,7 @@ async function start() {
   const app = await buildServer();
 
   const host = process.env.HOST || "0.0.0.0";
-  const port = Number(process.env.PORT || 3000);
+  const port = Number(process.env.PORT || 8080);
 
   try {
     await app.listen({ host, port });
@@ -67,9 +68,8 @@ async function start() {
   }
 }
 
-if (require.main === module) {
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (isDirectRun) {
   start();
 }
-
-module.exports = { buildServer };
 

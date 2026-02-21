@@ -1,8 +1,8 @@
 {
     "name": "cefetrj-scrapper-backend",
     "version": "1.0.0",
-    "description": "CEFET-RJ login scraper backend using Fastify + Puppeteer",
-    "type": "commonjs",
+    "description": "CEFET-RJ login scraper backend using Fastify + Puppeteer Core",
+    "type": "module",
     "main": "src/server.js",
     "scripts": {
         "start": "node src/server.js",
@@ -16,6 +16,6 @@
         "@fastify/swagger": "^9.7.0",
         "@fastify/swagger-ui": "^5.2.5",
         "fastify": "^5.2.0",
-        "puppeteer": "^24.1.0"
+        "puppeteer-core": "^24.1.0"
     }
 }

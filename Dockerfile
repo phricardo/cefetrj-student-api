@@ -1,9 +1,9 @@
-FROM node:20-bookworm-slim
+﻿FROM node:20-bookworm-slim
 
 WORKDIR /app
 ENV NODE_ENV=production
 
-# 1) Instala Chromium + dependências comuns
+# 1) Instala Chromium + dependÃªncias comuns
 RUN apt-get update && apt-get install -y --no-install-recommends \
   chromium \
   ca-certificates \
@@ -42,19 +42,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   xdg-utils \
   && rm -rf /var/lib/apt/lists/*
 
-# 2) Diz pro Puppeteer onde está o Chromium
+# 2) Diz pro Puppeteer onde estÃ¡ o Chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# (opcional) evita o Puppeteer tentar baixar Chrome na instalação
+# (opcional) evita o Puppeteer tentar baixar Chrome na instalaÃ§Ã£o
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
-# 3) Dependências Node
+# 3) DependÃªncias Node
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# 4) Código
+# 4) CÃ³digo
 COPY src ./src
 
-EXPOSE 3000
+EXPOSE 8080
 
 CMD ["npm", "start"]
+

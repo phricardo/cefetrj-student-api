@@ -1,5 +1,5 @@
-﻿const puppeteer = require("puppeteer");
-const { BASE_URL } = require("../util");
+import puppeteer from "puppeteer-core";
+import { BASE_URL } from "../util.js";
 
 const MAX_RETRIES = 2;
 
@@ -312,5 +312,4 @@ async function registerLoginRoute(fastify) {
     });
 }
 
-module.exports = registerLoginRoute;
-
+export default registerLoginRoute;

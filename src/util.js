@@ -1,6 +1,6 @@
-const BASE_URL = "https://alunos.cefet-rj.br";
+export const BASE_URL = "https://alunos.cefet-rj.br";
 
-function capitalizeName(name) {
+export function capitalizeName(name) {
   if (!name || typeof name !== "string") return "";
 
   return name
@@ -10,9 +10,3 @@ function capitalizeName(name) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
-
-module.exports = {
-  BASE_URL,
-  capitalizeName,
-};
-
