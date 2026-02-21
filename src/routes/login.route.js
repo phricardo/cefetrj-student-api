@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer-core";
-import { BASE_URL } from "../util.js";
+import { BASE_URL, resolveCampusFromCourseName } from "../util.js";
 
 const MAX_RETRIES = 2;
 
@@ -33,101 +33,36 @@ async function extractPnotifyText(page) {
   });
 }
 
-async function extractProfileData(page) {
+async function extractReportData(page) {
   return page.evaluate(() => {
     const clean = (v) => (v || "").replace(/\s+/g, " ").trim();
+    const normalize = (v) =>
+      clean(v)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
 
-    // pega "label" (span.label) e retorna o texto logo abaixo no mesmo TD/TH
     const getByLabel = (labelRegex) => {
       const labels = Array.from(document.querySelectorAll("span.label"));
       for (const label of labels) {
-        const labelText = clean(label.textContent || "");
+        const labelText = normalize(label.textContent || "");
         if (!labelRegex.test(labelText)) continue;
 
         const td = label.closest("td, th");
         if (!td) continue;
 
-        // geralmente vem como: <span class="label">Nome</span><br>VALOR
         const raw = clean(td.textContent || "");
-        const value = clean(raw.replace(labelText, "")).replace(/^[:\-]?\s*/g, "");
+        const labelRaw = clean(label.textContent || "");
+        const value = clean(raw.replace(labelRaw, "")).replace(/^[:\-]?\s*/g, "");
         if (value) return value;
       }
       return "";
     };
 
-    const matriculaEl = document.querySelector("#matricula");
-    const matricula = clean(matriculaEl?.getAttribute("value") || matriculaEl?.value || "");
-
-    const nomeMenu = clean(document.querySelector("#menu button .ui-button-text")?.textContent || "");
-
-    const nome = getByLabel(/^Nome$/i) || nomeMenu;
-    const nomeMae = getByLabel(/Nome da M[??a]e/i);
-    const nomePai = getByLabel(/Nome da Pai|Nome do Pai/i);
-    const nascimento = getByLabel(/Nascimento/i);
-    const sexo = getByLabel(/Sexo/i);
-    const etnia = getByLabel(/Etnia/i);
-    const deficiencia = getByLabel(/Defici[??e]ncia/i);
-    const tipoSanguineo = getByLabel(/Tipo Sangu[i??]neo/i);
-    const fatorRh = getByLabel(/Fator RH/i);
-    const estadoCivil = getByLabel(/Estado Civil/i);
-    const paginaPessoal = getByLabel(/P[??a]gina Pessoal/i);
-
-    const nacionalidade = getByLabel(/Nacionalidade/i);
-    const estado = getByLabel(/^Estado$/i);
-    const naturalidade = getByLabel(/Naturalidade/i);
-
-    // Endere??o (bloco Endere??o)
-    const tipoEndereco = getByLabel(/Tipo de endere[??c]o/i);
-    const tipoLogradouro = getByLabel(/Tipo de logradouro/i);
-    const logradouro = getByLabel(/Logradouro/i);
-    const numero = getByLabel(/^N[??u]mero$/i);
-    const complemento = getByLabel(/Complemento/i);
-    const bairro = getByLabel(/Bairro/i);
-    const pais = getByLabel(/Pa[i??]s/i);
-    const uf = getByLabel(/\bRJ\b|^RJ$|^UF$/i) || getByLabel(/Estado/i); // fallback leve
-    const cidade = getByLabel(/Cidade/i);
-    const distrito = getByLabel(/Distrito/i);
-    const cep = getByLabel(/\bCEP\b/i);
-    const email = getByLabel(/^E-mail$/i) || paginaPessoal;
-    const telResidencial = getByLabel(/Tel\. Residencial/i);
-    const telCelular = getByLabel(/Tel\. Celular/i);
-    const telComercial = getByLabel(/Tel\. Comercial/i);
-    const fax = getByLabel(/Fax/i);
-
     return {
-      matricula,
-      fullName: nome || null,
-      motherName: nomeMae || null,
-      fatherName: nomePai || null,
-      birthDate: nascimento || null,
-      gender: sexo || null,
-      ethnicity: etnia || null,
-      disability: deficiencia || null,
-      bloodType: tipoSanguineo || null,
-      rhFactor: fatorRh || null,
-      maritalStatus: estadoCivil || null,
-      email: paginaPessoal || null,
-      nationality: nacionalidade || null,
-      state: estado || null,
-      placeOfBirth: naturalidade || null,
-      // address: {
-      //   addressType: tipoEndereco || null,
-      //   streetType: tipoLogradouro || null,
-      //   street: logradouro || null,
-      //   number: numero || null,
-      //   complement: complemento || null,
-      //   neighborhood: bairro || null,
-      //   country: pais || null,
-      //   stateCode: uf || null,
-      //   city: cidade || null,
-      //   district: distrito || null,
-      //   zipCode: cep || null,
-      //   email: email || null,
-      //   homePhone: telResidencial || null,
-      //   mobilePhone: telCelular || null,
-      //   workPhone: telComercial || null,
-      //   fax: fax || null,
-      // },
+      enrollmentPeriod: getByLabel(/^periodo de matricula:?\s*$/i) || null,
+      course: getByLabel(/^curso:?\s*$/i) || null,
+      currentPeriod: getByLabel(/^periodo atual:?\s*$/i) || null,
     };
   });
 }
@@ -144,8 +79,8 @@ async function registerLoginRoute(fastify) {
           required: ["username", "password"],
           properties: {
             username: { type: "string" },
-            password: { type: "string" }
-          }
+            password: { type: "string" },
+          },
         },
         response: {
           200: {
@@ -156,27 +91,31 @@ async function registerLoginRoute(fastify) {
                 type: "object",
                 properties: {
                   username: { type: "string" },
-                  matricula: { type: "string", nullable: true }
+                  studentId: { type: "string" },
+                  enrollmentPeriod: { type: "string", nullable: true },
+                  course: { type: "string", nullable: true },
+                  currentPeriod: { type: "string", nullable: true },
+                  campus: { type: "string", nullable: true },
                 },
-                additionalProperties: true
-              }
+                additionalProperties: true,
+              },
             },
-            required: ["token", "data"]
+            required: ["token", "data"],
           },
           400: {
             type: "object",
             properties: {
-              error: { type: "string" }
-            }
+              error: { type: "string" },
+            },
           },
           503: {
             type: "object",
             properties: {
-              error: { type: "string" }
-            }
-          }
-        }
-      }
+              error: { type: "string" },
+            },
+          },
+        },
+      },
     },
     async (request, reply) => {
       const { username, password } = request.body || {};
@@ -189,15 +128,15 @@ async function registerLoginRoute(fastify) {
 
       try {
         browser = await puppeteer.launch({
-          headless: "new", // ou true, mas "new" é melhor nas versões recentes
+          headless: "new",
           executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
           args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage", // evita crash por /dev/shm pequeno no free tier
+            "--disable-dev-shm-usage",
             "--disable-gpu",
             "--no-zygote",
-            "--single-process"
+            "--single-process",
           ],
         });
 
@@ -208,7 +147,6 @@ async function registerLoginRoute(fastify) {
         page.setDefaultTimeout(30000);
 
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
-          // 1) Abre index
           await page.goto(`${BASE_URL}/aluno/index.action`, {
             waitUntil: "domcontentloaded",
             timeout: 30000,
@@ -216,7 +154,6 @@ async function registerLoginRoute(fastify) {
 
           if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
 
-          // 2) Login
           await page.evaluate(
             async ({ loginUrl, user, pass }) => {
               const body = new URLSearchParams({
@@ -239,7 +176,6 @@ async function registerLoginRoute(fastify) {
             }
           );
 
-          // 3) Vai para index logado
           await page.goto(`${BASE_URL}/aluno/index.action`, {
             waitUntil: "domcontentloaded",
             timeout: 30000,
@@ -247,17 +183,14 @@ async function registerLoginRoute(fastify) {
 
           if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
 
-          // 4) Erros de UI
           const pnotifyText = await extractPnotifyText(page);
           if (pnotifyText) throw new Error(pnotifyText);
 
-          // 5) Pega matr??cula na index
           await page.waitForSelector("#matricula", { timeout: 15000 });
 
-          const matricula = await page.$eval("#matricula", (el) => (el?.value || "").trim());
-          if (!matricula) throw new Error("Matr??cula n??o encontrada.");
+          const studentId = await page.$eval("#matricula", (el) => (el?.value || "").trim());
+          if (!studentId) throw new Error("Matricula nao encontrada.");
 
-          // 6) Cookies SSO
           const cookies = await page.cookies(`${BASE_URL}/aluno/`);
           const SSO = cookies.find((cookie) => cookie.name === "JSESSIONIDSSO");
 
@@ -266,7 +199,6 @@ async function registerLoginRoute(fastify) {
             continue;
           }
 
-          // 7) Agora abre a p??gina de perfil (dados cadastrais)
           await page.goto(`${BASE_URL}/aluno/aluno/perfil/perfil.action`, {
             waitUntil: "domcontentloaded",
             timeout: 30000,
@@ -277,26 +209,28 @@ async function registerLoginRoute(fastify) {
           const pnotifyPerfil = await extractPnotifyText(page);
           if (pnotifyPerfil) throw new Error(pnotifyPerfil);
 
-          // 8) Extrai dados do perfil
-          const profile = await extractProfileData(page);
+          await page.goto(
+            `${BASE_URL}/aluno/aluno/relatorio/relatorios.action?matricula=${encodeURIComponent(studentId)}`,
+            {
+              waitUntil: "domcontentloaded",
+              timeout: 30000,
+            }
+          );
 
-          // garantia: se por algum motivo vier vazio, mant??m a matr??cula que voc?? j?? tem
-          profile.matricula = profile.matricula || matricula;
+          if (isCpaUrl(page.url())) throw new Error(CPA_BLOCK_MESSAGE);
 
-          // 9) Set-Cookie pro seu dom??nio
-          // reply.setCookie("CEFETID_SSO", SSO.value, {
-          //   httpOnly: true,
-          //   secure: true,
-          //   sameSite: "strict",
-          //   path: "/",
-          // });
+          const pnotifyRelatorios = await extractPnotifyText(page);
+          if (pnotifyRelatorios) throw new Error(pnotifyRelatorios);
 
-          // 10) Retorna JSON
+          const reportData = await extractReportData(page);
+
           return reply.status(200).send({
             token: String(SSO.value),
             data: {
               username: String(username),
-              ...profile,
+              studentId: String(studentId),
+              ...reportData,
+              campus: resolveCampusFromCourseName(reportData?.course),
             },
           });
         }
@@ -309,7 +243,8 @@ async function registerLoginRoute(fastify) {
       } finally {
         if (browser) await browser.close();
       }
-    });
+    }
+  );
 }
 
 export default registerLoginRoute;
