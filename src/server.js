@@ -29,7 +29,7 @@ async function buildServer() {
     },
   });
 
-  await app.register(registerLoginRoute, { prefix: "/api" });
+  await app.register(registerLoginRoute, { prefix: "/api/v1" });
 
   app.get(
     "/health",
@@ -72,3 +72,4 @@ if (require.main === module) {
 }
 
 module.exports = { buildServer };
+
