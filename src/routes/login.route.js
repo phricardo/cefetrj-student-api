@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer");
+﻿const puppeteer = require("puppeteer");
 const { BASE_URL } = require("../util");
 
 const MAX_RETRIES = 2;
@@ -151,12 +151,7 @@ async function registerLoginRoute(fastify) {
           200: {
             type: "object",
             properties: {
-              status: {
-                type: "object",
-                properties: {
-                  ok: { type: "boolean" }
-                }
-              },
+              token: { type: "string" },
               data: {
                 type: "object",
                 properties: {
@@ -165,7 +160,8 @@ async function registerLoginRoute(fastify) {
                 },
                 additionalProperties: true
               }
-            }
+            },
+            required: ["token", "data"]
           },
           400: {
             type: "object",
@@ -289,7 +285,7 @@ async function registerLoginRoute(fastify) {
 
           // 10) Retorna JSON
           return reply.status(200).send({
-            token: SSO,
+            token: String(SSO.value),
             data: {
               username: String(username),
               ...profile,
@@ -309,3 +305,4 @@ async function registerLoginRoute(fastify) {
 }
 
 module.exports = registerLoginRoute;
+
